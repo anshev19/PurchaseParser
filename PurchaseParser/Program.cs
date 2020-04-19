@@ -12,15 +12,29 @@ namespace PurchaseParser
 {
     class Program
     {
+        private static string _filePath;
         static void Main(string[] args)
         {
+            
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Please specify path of output file");
+                _filePath = Console.ReadLine();                
+            }
+            else _filePath = args[0];
+            while (!Directory.Exists(_filePath))
+            {
+                Console.WriteLine($"Path '{_filePath}' isn't exist. Please enter existing path");
+                _filePath = Console.ReadLine();
+            }
+
             var purchaseDataList = new List<PurchaseData>();
             for (uint i = 1; i <= 10; i++)
             {
                 purchaseDataList.AddRange(PageParser.GetPurchaseDataObjects(10, i));
             }
 
-            UploadDataToExcell(purchaseDataList);
+            UploadDataToExcell(purchaseDataList);            
         }
 
         
@@ -56,10 +70,17 @@ namespace PurchaseParser
             var year = DateTime.Now.Year;
             var month = DateTime.Now.Month;
             var day = DateTime.Now.Day;
+            var fileName = $"{_filePath}\\Данные по закупкам {day}-{month}-{year}.xlsx";
 
-            workSheet.SaveAs($"{Environment.CurrentDirectory}\\Данные по закупкам {day}-{month}-{year}.xlsx");
-
+            while (File.Exists(fileName))
+            {
+                fileName = $"{fileName.Split('.')[0]}_{new Random().Next()}.xlsx";                
+            }
+            
+            workSheet.SaveAs(fileName);
             excelApp.Quit();
+
+            Console.WriteLine($"File '{fileName}' is successfully uploaded");
         }
     }
 }
