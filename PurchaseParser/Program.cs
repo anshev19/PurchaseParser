@@ -1,6 +1,7 @@
 ﻿using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
+using Excel = Microsoft.Office.Interop.Excel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -13,37 +14,52 @@ namespace PurchaseParser
     {
         static void Main(string[] args)
         {
-            //IList<string> data = new List<string>();
-            var searchResultUrl = "https://zakupki.gov.ru/epz/order/extendedsearch/results.html";
-            var htmlDoc = new HtmlDocument();
-            
-            for (var i = 1; i <= 10; i++)
+            var purchaseDataList = new List<PurchaseData>();
+            for (uint i = 1; i <= 10; i++)
             {
-                string reqParams = $"?searchString=&morphology=on&search-filter=%D0%94%D0%B0%D1%82%D0%B5+%D1%80%D0%B0%D0%B7%D0%BC%D0%B5%D1%89%D0%B5%D0%BD%D0%B8%D1%8F&pageNumber={i}&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false&savedSearchSettingsIdHidden=&sortBy=UPDATE_DATE&fz44=on&fz223=on&af=on&ca=on&pc=on&pa=on&placingWayList=&okpd2Ids=&okpd2IdsCodes=&npaHidden=&restrictionsToPurchase44=&publishDateFrom=&publishDateTo=&applSubmissionCloseDateFrom=&applSubmissionCloseDateTo=&priceFromGeneral=&priceFromGWS=&priceFromUnitGWS=&priceToGeneral=&priceToGWS=&priceToUnitGWS=&currencyIdGeneral=-1&customerIdOrg=&agencyIdOrg=";
-                var data = GetPageContent(searchResultUrl + reqParams);
-                htmlDoc.LoadHtml(data);
-                var nodes = htmlDoc.DocumentNode.SelectNodes("//div[@class='registry-entry__body-value']");
+                purchaseDataList.AddRange(PageParser.GetPurchaseDataObjects(10, i));
             }
+
+            UploadDataToExcell(purchaseDataList);
         }
 
-        public static string GetPageContent(string url)
-        {           
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "GET";
-            request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36";
-            request.KeepAlive = true;
-            request.Host = "zakupki.gov.ru";
-            request.Timeout = 60000;
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            if (response.StatusCode != HttpStatusCode.OK) throw new Exception($"Status code: {response.StatusCode}");
-            
-            var receiveStream = response.GetResponseStream();
-            var readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
-            var content = readStream.ReadToEnd();
-            response.Close();
-            readStream.Close();
-            
-            return content;
+        
+        public static void UploadDataToExcell(IList<PurchaseData> purchaseData)
+        {
+            var excelApp = new Excel.Application();
+            excelApp.Visible = true;
+            excelApp.Workbooks.Add();
+            var workSheet = excelApp.ActiveSheet;//new Excel.Worksheet();
+            workSheet.Cells[1, "A"] = "Имя закупки";
+            workSheet.Cells[1, "B"] = "Начальная цена";
+            workSheet.Cells[1, "C"] = "Имя заказчика";
+            workSheet.Cells[1, "D"] = "Дата размещения";
+            workSheet.Cells[1, "E"] = "Дата обновления";
+            workSheet.Cells[1, "F"] = "Номер закупки";
+            workSheet.Cells[1, "G"] = "Раздел";
+            workSheet.Cells[1, "H"] = "Тип закупки";
+            workSheet.Cells[1, "I"] = "Статус";
+
+            for (var i=0; i<purchaseData.Count; i++)
+            {
+                workSheet.Cells[i + 2, "A"] = purchaseData[i].Title;
+                workSheet.Cells[i + 2, "B"] = purchaseData[i].Price;
+                workSheet.Cells[i + 2, "C"] = purchaseData[i].Customer;
+                workSheet.Cells[i + 2, "D"] = purchaseData[i].AllocationDate;
+                workSheet.Cells[i + 2, "E"] = purchaseData[i].UpdatedDate;
+                workSheet.Cells[i + 2, "F"] = purchaseData[i].PurchaseNumber;
+                workSheet.Cells[i + 2, "G"] = purchaseData[i].PartitionFz;
+                workSheet.Cells[i + 2, "H"] = purchaseData[i].PurchaseType;
+                workSheet.Cells[i + 2, "I"] = purchaseData[i].PurchaseStatus;
+            }
+
+            var year = DateTime.Now.Year;
+            var month = DateTime.Now.Month;
+            var day = DateTime.Now.Day;
+
+            workSheet.SaveAs($"{Environment.CurrentDirectory}\\Данные по закупкам {day}-{month}-{year}.xlsx");
+
+            excelApp.Quit();
         }
     }
 }
